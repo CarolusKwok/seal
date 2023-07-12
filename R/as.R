@@ -6,12 +6,13 @@
 #' @param func The function name causing the error in `character`. By default `NULL`, this will not be displayed.
 #'
 #' @return a list of formatted data frames, in the order of `factor`, `item`, `data`.
-#' @export
+#' @keywords internal
+#' @noRd
 #'
-#' @examples form_read(factor, item, data)
-form_read = function(factor, item, data, func = "form_read"){
+#' @examples as_sedunit(factor, item, data)
+as_sedunit = function(factor, item, data, func = "as_sedunit"){
   #Perform
-  if(seal::ckrw_dataset(factor, item, data, func = func)){return(invisible())}
+  if(seal:::ckrw_dataset(factor, item, data, func = func)){return(invisible(T))}
 
   #Extract data ####
   factor = factor %>% dplyr::arrange(factor)
@@ -114,19 +115,29 @@ form_read = function(factor, item, data, func = "form_read"){
       data = dplyr::mutate(data, "{i}" := data_sel)
     }
   }
+  ##Make all columns in factor as characters ####
+  factor = dplyr::mutate(.data = factor, dplyr::across(dplyr::everything(), as.character))
+  ##Make all columns in item as characters ####
+  item = dplyr::mutate(.data = item, dplyr::across(dplyr::everything(), as.character))
+
+  #Describe the items with classes####
+  normal_class = c("tbl_df", "tbl", "data.frame")
+  class(factor) = c("sed_factor", normal_class)
+  class(item) = c("sed_item", normal_class)
+  class(data) = c("sed_data", normal_class)
+
   #Final check the data set####
-  seal::ck_dataset(factor = factor,
-                 item = item,
-                 data = data, func = func)
+  seal:::ck_dataset(factor = factor,
+                    item = item,
+                    data = data, func = func)
+
   #Return the item
   return(invisible(list(factor, item, data)))
 }
 
-
-
 #' Format a list of data, read-in, accordingly
 #'
-#' This function is a substitute for `form_read`, allowing to read in a `list` of dataframe. The order of the list must be as follow.
+#' This function is a substitute for `as_sedunit`, allowing to read in a `list` of dataframe. The order of the list must be as follow.
 #' * item 1: the dataframe containing matrix `factor`
 #' * item 2: the dataframe containing matrix `item`
 #' * item 3: the dataframe containing matrix `data`
@@ -138,8 +149,8 @@ form_read = function(factor, item, data, func = "form_read"){
 #' @return a list of formatted data frames, in the order of same as input.
 #' @export
 #'
-#' @examples form_read_multi(list(factor, item1, data1, item2, data2))
-form_read_multi = function(list, func = "form_read_multi"){
+#' @examples as_sed(list(factor, item1, data1, item2, data2))
+as_sed = function(list, func = "as_sed"){
   #Check if input list length is >=3 and odd####
   len = length(list)
   if(len < 3){
@@ -153,7 +164,7 @@ form_read_multi = function(list, func = "form_read_multi"){
                                          func = func)))
   }
 
-  #magic ####
+  #Start formatting the data, according to `as_sedunit` ####
   factor = list[[1]]
   item = NA
   data = NA
@@ -163,11 +174,25 @@ form_read_multi = function(list, func = "form_read_multi"){
     item = list[[i]]
     data = list[[i+1]]
 
-    format_list = seal::form_read(factor = factor, item = item, data = data, func = "form_read_multi")
+    format_list = seal:::as_sedunit(factor = factor, item = item, data = data, func = "as_sed")
     if(is.logical(format_list[[1]])){if(format_list[[1]]){break}}
     if(i == 2){list[[1]] = format_list[[1]]}
     list[[i]] = format_list[[2]]
     list[[i+1]] = format_list[[3]]
   }
-  return(invisible(list))
+
+
+  #Start formatting the data, according to standard SED format ####
+  SED = list(factor = list[[1]])
+  for(i in 1:len){
+    item = list[[(i*2)]]
+    data = list[[(i*2)+1]]
+    SED_unit = list(list(item = item,
+                         data = data))
+    class(SED_unit[[1]]) = c("sed_set")
+    names(SED_unit) = paste0("data_", i)
+    SED = append(SED, values = SED_unit)
+  }
+  class(SED) = c("sed")
+  return(invisible(SED))
 }

@@ -1,4 +1,4 @@
-#' Data: Check data fulfills requirement
+#' SED: Check dataset fulfills requirement
 #'
 #' @param factor the `factor` matrix in dataframe or tibble.
 #' @param item the `item` matrix in dataframe or tibble.
@@ -7,14 +7,20 @@
 #' @param func The function name that called this function, which is to be passed to `sys_msgerror` or `sys_msgwarning`. Default as `"ck_dataset"`. If `NULL`, the function name will not display.
 #'
 #' @return a logical value, with `TRUE` representing an error occurred; and a standardized message if `silent` is `FALSE`.
-#' @export
+#' @keywords internal
+#' @noRd
 #'
 #' @examples ck_dataset(factor, item, data)
 ck_dataset = function(factor, item, data, silent = FALSE, func = "ck_dataset"){
   #Run basic check of the matrix ####
-  if(seal::ckrw_factor(factor, silent = silent, func = func)){return(invisible(TRUE))}
-  if(seal::ckrw_item(item, silent = silent, func = func)){return(invisible(TRUE))}
-  if(seal::ckrw_data(data, silent = silent, func = func)){return(invisible(TRUE))}
+  if(seal:::ck_factor(factor, silent = silent, func = func)){return(invisible(TRUE))}
+  if(seal:::ck_item(item, silent = silent, func = func)){return(invisible(TRUE))}
+  if(seal:::ck_data(data, silent = silent, func = func)){return(invisible(TRUE))}
+
+  #Temporarily remove all the SED classes ####
+  class(factor) = "data.frame"
+  class(item) = "data.frame"
+  class(data) = "data.frame"
 
   #Run cooperative check of the matrix, Obtain factors and items from data####
   data_colnames = colnames(data)

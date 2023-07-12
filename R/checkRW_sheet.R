@@ -6,7 +6,8 @@
 #' @param func The function name causing the error in `character`. By default `NULL`, this will not be displayed.
 #'
 #' @return a logical value, with `TRUE` representing an error occurred; and a standardized message if `silent` is `FALSE`.
-#' @export
+#' @keywords internal
+#' @noRd
 #'
 #' @examples ckrw_sheet(file = DIR)
 ckrw_sheet = function(file, sheet, silent = F, func = "ckrw_sheet"){

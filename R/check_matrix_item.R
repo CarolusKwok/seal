@@ -1,22 +1,30 @@
-#' Pre-check for r/w: Check the `item` matrix if it suits the requirements
+#' SED: Check `item` matrix fulfills requirement
 #'
 #' @param item the `item` matrix in dataframe or tibble.
 #' @param silent Will this function return an error message? Default as `FALSE`, which will display a text message.
-#' @param func The function name that called this function, which is to be passed to `sys_msgerror` or `sys_msgwarning`. Default as `"ckrw_item"`. If `NULL`, the function name will not display.
+#' @param func The function name that called this function, which is to be passed to `sys_msgerror` or `sys_msgwarning`. Default as `"ck_item"`. If `NULL`, the function name will not display.
 #'
 #' @return a logical value, with `TRUE` representing an error occurred; and a standardized message if `silent` is `FALSE`.
 #' @keywords internal
 #' @noRd
 #'
-#' @examples ckrw_item(item)
-ckrw_item = function(item, silent = FALSE, func = "ckrw_item"){
+#' @examples ck_item(item)
+ck_item = function(item, silent = FALSE, func = "ck_item"){
   #Check if there is an input ####
   if(!hasArg(item)){return(invisible(seal:::sys_msgs_noinput(arg = "item",
                                                              expect = c("data.frame", "tibble"))))}
 
-  #Check if `item` is a dataframe or tibble ####
+  #Check about the class ####
+  if((!seal::is_sed_item(item))){
+    return(invisible(seal:::sys_msgs_wrongclass(arg = "item",
+                                                expect = c("sed_item"),
+                                                silent = silent, func = func)))}
   if((!is.data.frame(item))){return(invisible(seal:::sys_msgs_wrongclass(arg = "item",
                                                                          expect = c("data.frame", "tibble"))))}
+
+  #Temporarily remove the sed_item class for easier process ####
+  class_sed = class(item)
+  class(item) = class_sed[class_sed != "sed_item"]
 
   #Check if column names include `item`, `datatype` ####
   columns = colnames(item)
@@ -30,6 +38,18 @@ ckrw_item = function(item, silent = FALSE, func = "ckrw_item"){
     col = unique(columns[duplicated(columns)])
     return(invisible(seal:::sys_msgsdf_notuniquecolname(col = col, dataframe = "item",
                                                         silent = silent, func = func)))
+  }
+
+  #Check if all columns are "characters"
+  colclass = item %>%
+    lapply(class) %>%
+    unclass() %>%
+    unique()
+
+  if(length(colclass) != 1 | colclass[1] != "character"){
+    return(invisible(seal:::sys_msgerror(title = "All columns in `factor` must be `character`",
+                                         error = 'Please make sure all columns in {.code factor} are "character".',
+                                         silent = silent, func = func)))
   }
 
   #Check if there is NA ####
