@@ -10,42 +10,32 @@
 #' @noRd
 #'
 #' @examples ckrw_sheet(file = DIR)
-ckrw_sheet = function(file, sheet, silent = F, func = "ckrw_sheet"){
-  #Check ####
-  if(!hasArg(file)){
-    return(invisible(seal:::sys_msgs_noinput(arg = "file", expect = "character",
-                                             silent = silent, func = ckrw_sheet)))
-  }
-  if(!file.exists(file)){
-    return(invisible(seal:::sys_msgerror(title = "The file does not exist",
-                                         error = c("x" = "Please check the file address."))))
-  }
-
+ckrw_sheet = function(file, sheet, silent = F, func = NULL){
   #Prepare ####
   sheets = openxlsx::getSheetNames(file)
-  sheet_data = seal:::sys_obtain_sheetdata(sheet = sheets)
-  sheet_item = seal:::sys_obtain_sheetitem(sheet = sheets)
+  sheet_data = seal:::sys_grab_sheetdata(sheet = sheets)
+  sheet_item = seal:::sys_grab_sheetitem(sheet = sheets)
 
   #Check if sheet `factor` is present ####
   if(!("factor" %in% sheets)){
-    return(invisible(seal:::sys_msgerror(title = "`factor` is missing in xlsx file",
-                                         error = "Please create the `factor` sheet.",
-                                         silent = c("x" = silent), func = func)))
+    return(invisible(seal:::sys_msg_error(title = "`factor` is missing in xlsx file",
+                                          error = "Please create the `factor` sheet.",
+                                          silent = silent, func = func)))
   }
 
   #Check if arg `sheet` are present in file as data sheets####
   if(hasArg(sheet)){
-    if(length(sheet) != length(seal:::sys_obtain_sheetdata(sheet))){
-      return(invisible(seal:::sys_msgerror(title = "Some `sheet` are not data sheet",
-                                           error = c("x" = "Please check the argument `sheet`"),
-                                           silent = silent, func = func)))
+    if(length(sheet) != length(seal:::sys_grab_sheetdata(sheet))){
+      return(invisible(seal:::sys_msg_error(title = "Some `sheet` are not data sheet",
+                                            error = "Please check the argument `sheet`",
+                                            silent = silent, func = func)))
     }
     if(sum(!(sheet %in% sheet_data))){
       failed_sheet = sheet[!(sheet %in% sheet_data)]
       error = paste0("Please check the ",
                      stringr::str_flatten(string = failed_sheet, collapse = ", ", last = " & "))
-      return(invisible(seal:::sys_msgerror(title = "Some `sheet` are missing in xlsx file",
-                                           error = c("x" = error), silent = silent, func = func)))
+      return(invisible(seal:::sys_msg_error(title = "Some `sheet` are missing in xlsx file",
+                                            error = error, silent = silent, func = func)))
     }
   } else {
     sheet = sheet_data
@@ -60,8 +50,8 @@ ckrw_sheet = function(file, sheet, silent = F, func = "ckrw_sheet"){
       error = paste0("Please check ",
                      stringr::str_flatten(string = paste0("`", failed_sheet, "`"),
                                           collapse = ", ", last = " & "))
-      return(invisible(seal:::sys_msgerror(title = "Some `data` are not described in xlsx.",
-                                           error = c("x" = error), silent = silent, func = func)))
+      return(invisible(seal:::sys_msg_error(title = "Some `data` are not described in xlsx.",
+                                            error = error, silent = silent, func = func)))
     }
   }
 

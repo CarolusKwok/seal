@@ -9,22 +9,40 @@
 #' @keywords internal
 #' @noRd
 #'
-#' @examples as_sedunit(factor, item, data)
-as_sedunit = function(factor, item, data, func = "as_sedunit"){
-  #Perform
+#' @examples format_sedunit(factor, item, data)
+format_sedunit = function(factor, item, data, func = NULL){
+  #Perform a check ####
   if(seal:::ckrw_dataset(factor, item, data, func = func)){return(invisible(T))}
 
-  #Extract data ####
-  factor = factor %>% dplyr::arrange(factor)
+  #Clean up and Extract data ####
+  factor = dplyr::arrange(factor, factor)
   data$`@code` = ifelse(is.na(data$`@code`), "", data$`@code`)
+  data_factors = seal:::sys_grab_factor(colnames(data))
+  data_items = seal:::sys_grab_item(colnames(item))
+  ava_factors = unique(factor$factor)
+  ava_items = unique(item$item)
   #Start format the data set ####
+  ##Make all columns in factor and item as characters ####
+  factor = seal:::sys_tld_dfconv2char(factor)
+  item = seal:::sys_tld_dfconv2char(item)
+
+  ##Format data's factors into characters if not flexible ####
+  for(i in data_factors){
+    sel_label = dplyr::filter(factor, factor == i)$label
+    if(length(sel_label) == 1){
+      if(sel_label == "###"){
+        next
+      }
+    } else {
+      tmp_data = unlist(dplyr::select(data, {{i}}))
+      data = dplyr::mutate(data, "{i}" := as.character(tmp_data))
+    }
+  }
   ##Create abbr if there isn't ####
   if(anyNA(factor$abbr)){
-    factor_ava = unique(factor$factor)
-    tmp_factor = dplyr::select(.data = factor,
-                               factor, label, abbr) %>%
+    tmp_factor = dplyr::select(.data = factor, factor, label, abbr) %>%
       dplyr::mutate(nchar = nchar(label))
-    for(i in factor_ava){
+    for(i in ava_factors){
       tmp_factor_sel = dplyr::filter(.data = tmp_factor,
                                      factor == i)
       max_nchar = max(tmp_factor_sel$nchar)
@@ -45,11 +63,9 @@ as_sedunit = function(factor, item, data, func = "as_sedunit"){
   }
   ##Create @code in data if there isn't ####
   if(sum(data$`@code` == "")){
-    tmp_factor = dplyr::select(factor, factor, label, abbr)
+    tmp_factor = dplyr::select(.data = factor, factor, label, abbr)
     tmp_data = data
-    factor_ava = colnames(tmp_data)
-    factor_ava = factor_ava[stringr::str_sub(factor_ava, start = 1L, end = 1L) %>%
-                              stringr::str_detect(pattern = "#")]
+    factor_ava = seal:::sys_grab_factor(colnames(tmp_data))
     tmp_data = dplyr::select(.data = tmp_data,
                              `@code`, {{factor_ava}})
 
@@ -71,11 +87,8 @@ as_sedunit = function(factor, item, data, func = "as_sedunit"){
   }
   ##Format factors in data ####
   tmp_data = data
-  tmp_factor = dplyr::select(.data = factor,
-                             factor, label, abbr)
-  factor_ava = colnames(tmp_data)
-  factor_ava = factor_ava[stringr::str_sub(factor_ava, start = 1L, end = 1L) %>%
-                            stringr::str_detect(pattern = "#")]
+  tmp_factor = dplyr::select(.data = factor, factor, label, abbr)
+  factor_ava = seal:::sys_grab_factor(colnames(tmp_data))
 
   for(i in factor_ava){
     tmp_factor_sel = dplyr::filter(.data = tmp_factor, factor == i)
@@ -89,14 +102,12 @@ as_sedunit = function(factor, item, data, func = "as_sedunit"){
   }
 
   ##Format items in data####
-  item_ava = colnames(data)
-  item_ava = item_ava[stringr::str_sub(item_ava, start = 1L, end = 1L) %>%
-                        stringr::str_detect(pattern = "#|@", negate = TRUE)]
+  item_ava = seal:::sys_grab_item(colnames(data))
   tmp_data = data
-
   for(i in item_ava){
     item_sel = dplyr::filter(.data = item, item == i)
     data_sel = dplyr::select(.data = data, a = {{i}})$a
+    type_sel = item_sel$datatype[1]
     if(item_sel$datatype[1] == "p"){
       data_sel = (data_sel == "p") %>%
         ifelse(is.na(.), FALSE, .)
@@ -115,10 +126,6 @@ as_sedunit = function(factor, item, data, func = "as_sedunit"){
       data = dplyr::mutate(data, "{i}" := data_sel)
     }
   }
-  ##Make all columns in factor as characters ####
-  factor = dplyr::mutate(.data = factor, dplyr::across(dplyr::everything(), as.character))
-  ##Make all columns in item as characters ####
-  item = dplyr::mutate(.data = item, dplyr::across(dplyr::everything(), as.character))
 
   #Describe the items with classes####
   normal_class = c("tbl_df", "tbl", "data.frame")
@@ -126,73 +133,6 @@ as_sedunit = function(factor, item, data, func = "as_sedunit"){
   class(item) = c("sed_item", normal_class)
   class(data) = c("sed_data", normal_class)
 
-  #Final check the data set####
-  seal:::ck_dataset(factor = factor,
-                    item = item,
-                    data = data, func = func)
-
   #Return the item
   return(invisible(list(factor, item, data)))
-}
-
-#' Format a list of data, read-in, accordingly
-#'
-#' This function is a substitute for `as_sedunit`, allowing to read in a `list` of dataframe. The order of the list must be as follow.
-#' * item 1: the dataframe containing matrix `factor`
-#' * item 2: the dataframe containing matrix `item`
-#' * item 3: the dataframe containing matrix `data`
-#' for more `item` and `data` matrixs, the pattern of `item`-`data` should continue.
-#'
-#' @param list The list of dataframes
-#' @param func The function name causing the error in `character`. By default `NULL`, this will not be displayed.
-#'
-#' @return a list of formatted data frames, in the order of same as input.
-#' @export
-#'
-#' @examples as_sed(list(factor, item1, data1, item2, data2))
-as_sed = function(list, func = "as_sed"){
-  #Check if input list length is >=3 and odd####
-  len = length(list)
-  if(len < 3){
-    return(invisible(seal:::sys_msgerror(title = "Length of input is insufficient",
-                                         error = "Please input at least 3 items in list",
-                                         func = func)))
-  }
-  if(len%%2 == 0){
-    return(invisible(seal:::sys_msgerror(title = "Length of input must be odd.",
-                                         error = "Please check the list",
-                                         func = func)))
-  }
-
-  #Start formatting the data, according to `as_sedunit` ####
-  factor = list[[1]]
-  item = NA
-  data = NA
-
-  len = (length(list)-1)/2
-  for(i in (1:len)*2){
-    item = list[[i]]
-    data = list[[i+1]]
-
-    format_list = seal:::as_sedunit(factor = factor, item = item, data = data, func = "as_sed")
-    if(is.logical(format_list[[1]])){if(format_list[[1]]){break}}
-    if(i == 2){list[[1]] = format_list[[1]]}
-    list[[i]] = format_list[[2]]
-    list[[i+1]] = format_list[[3]]
-  }
-
-
-  #Start formatting the data, according to standard SED format ####
-  SED = list(factor = list[[1]])
-  for(i in 1:len){
-    item = list[[(i*2)]]
-    data = list[[(i*2)+1]]
-    SED_unit = list(list(item = item,
-                         data = data))
-    class(SED_unit[[1]]) = c("sed_set")
-    names(SED_unit) = paste0("data_", i)
-    SED = append(SED, values = SED_unit)
-  }
-  class(SED) = c("sed")
-  return(invisible(SED))
 }
