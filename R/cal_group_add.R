@@ -24,6 +24,12 @@ cal_group = function(SED, data = NULL, factor = NULL, overwrite = FALSE){
                                           error = c("Please double check `SED` and `data`"),
                                           func = "cal_group", silent = FALSE)))
   }
+  if(sum(!(factor %in% seal:::sys_grab_factor(factor)))){
+    return(invisible(seal:::sys_msg_error(title = "Not all in `factor` are factors.",
+                                          error = c("Please double check `factor`"),
+                                          func = "cal_group", silent = FALSE)))
+  }
+
 
   #Start ####
   for(i in data){
